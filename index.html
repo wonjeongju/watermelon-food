@@ -173,8 +173,14 @@ main[data-view="map"] .side{display:none}
   .side{overflow:visible}
   main[data-view="map"] .mapwrap{height:calc(100vh - 150px)}
   header.top h1{font-size:22px}
+  /* 모바일: 핀/가게 클릭 시 아래에서 올라오는 바텀시트 (네이버지도 스타일) */
+  .overlay{align-items:flex-end;padding:0;background:rgba(15,18,22,.18)}
+  .modal{position:relative;width:100%;max-height:88vh;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.28);animation:sheetUp .28s cubic-bezier(.2,.8,.2,1);padding-top:8px}
+  .modal::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:40px;height:4px;border-radius:2px;background:var(--line);z-index:2}
+  .modal .hd{padding-top:22px;position:sticky;top:0;background:var(--panel);border-radius:20px 20px 0 0;z-index:1}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.modal{animation:none!important}}
 .subchips{padding-top:6px;padding-bottom:12px}
 .subchips .chip{font-size:13px;padding:6px 14px}
 .rvact{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
