@@ -169,9 +169,11 @@ main[data-view="map"] .side{display:none}
 @media (max-width:860px){
   .app{height:auto;min-height:100vh}
   main{grid-template-columns:1fr;grid-template-rows:auto}
-  .mapwrap{height:36vh;min-height:240px;max-height:340px;order:-1}
+  .mapwrap{height:200px;min-height:200px;max-height:200px;flex:none;width:100%}
   .side{overflow:visible}
   main[data-view="map"] .mapwrap{height:calc(100vh - 150px);max-height:none}
+  main[data-view="map"] .side{display:flex}
+  main[data-view="map"] .side > :not(.mapwrap){display:none}
   header.top h1{font-size:22px}
   /* 모바일: 핀/가게 클릭 시 아래에서 올라오는 바텀시트 (네이버지도 스타일) */
   .overlay{align-items:flex-end;padding:0;background:rgba(15,18,22,.18)}
@@ -188,6 +190,38 @@ main[data-view="map"] .side{display:none}
 .mini:hover{background:var(--bg)}
 .mini.del{color:#c9433a;border-color:#e7b3ae}
 .rvact .cf{font-size:12px;color:var(--ink2)}
+
+.compact-filters{display:contents}
+.filter-toggle,.mobile-map-toggle{display:none}
+@media(max-width:860px){
+  main,.side,.filters{min-width:0}
+  .side{padding:0}
+  .filters{padding:10px 12px}
+  .search{margin-bottom:8px}
+  .search input{min-width:0;width:100%;height:42px}
+  .filters .chips{padding:4px 0 8px;border:0;gap:6px;flex-wrap:nowrap}
+  .filters .chips[hidden]{display:none}
+  .filters .chip{flex:none;font-size:13px;padding:8px 12px}
+  .compact-filters{display:flex;gap:8px;position:relative;margin:2px 0 6px}
+  .compact-filters .group{margin:0;flex:1;min-width:0}
+  .filter-toggle{display:block;width:100%;min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12px;padding:8px;text-align:left;white-space:normal}
+  .filter-toggle[aria-expanded="true"]{border-color:var(--accent)}
+  .filter-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:1000;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .filter-toggle[aria-expanded="true"] + .filter-panel{display:block}
+  .slider{gap:6px}.slider input{min-width:0;width:60px}
+  .quick-checks{display:flex;gap:12px;margin:0}
+  .quick-checks .toggle{flex:1;min-height:42px;padding:0;border:0;justify-content:flex-start;gap:6px;font-size:12px;white-space:nowrap}
+  .quick-checks .lab{gap:0}
+  .quick-checks .ico{display:none}
+  .quick-checks .switch{order:-1;flex:none;width:20px;height:20px;border:1px solid var(--line);border-radius:5px;background:var(--panel)}
+  .quick-checks .switch::after{display:none}
+  .quick-checks .switch[aria-checked="true"]{background:var(--green);border-color:var(--green)}
+  .quick-checks .switch[aria-checked="true"]::after{content:'✓';display:block;position:static;transform:none;width:auto;height:auto;background:none;box-shadow:none;color:#fff;line-height:18px;font-size:15px;text-align:center}
+  .mobile-map-toggle{display:block;position:absolute;right:10px;top:10px;z-index:700;padding:7px 10px;font-size:12px;box-shadow:var(--shadow)}
+  .mapwrap.mobile-expanded{height:60vh;max-height:none}
+  main[data-view="map"] .mobile-map-toggle{display:none}
+  main[data-view="list"] .list{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -207,19 +241,20 @@ main[data-view="map"] .side{display:none}
       <div class="banner" id="banner" hidden></div>
       <div class="filters">
         <div class="search"><input id="q" type="search" placeholder="가게 이름 일부, 메뉴 검색" aria-label="검색"></div>
-        <div class="group"><h3>가격대 <small>(1인)</small></h3>
+        <div class="compact-filters">
+        <div class="group filter-group"><button type="button" class="filter-toggle" id="priceToggle" aria-expanded="false" aria-controls="pricePanel">가격대 · 전체 ▾</button><div class="filter-panel" id="pricePanel"><h3>가격대 <small>(1인)</small></h3>
           <div class="pills" id="tiers">
             <button class="pill" data-tier="0" aria-pressed="false">1만원 이하</button>
             <button class="pill" data-tier="1" aria-pressed="false">1~2만원</button>
             <button class="pill" data-tier="2" aria-pressed="false">2~4만원</button>
             <button class="pill" data-tier="3" aria-pressed="false">4만원 이상</button>
-          </div></div>
-        <div class="group"><h3>도보시간 <small>(직선거리 기준 추정)</small></h3>
+          </div></div></div>
+        <div class="group filter-group"><button type="button" class="filter-toggle" id="walkToggle" aria-expanded="false" aria-controls="walkPanel">도보시간 · 전체 ▾</button><div class="filter-panel" id="walkPanel"><h3>도보시간 <small>(직선거리 기준 추정)</small></h3>
           <div class="slider"><span>5분</span><input type="range" id="walk" min="5" max="16" step="1" value="16" aria-label="최대 도보시간"><span>15분+</span><output id="walkout">전체</output></div>
-        </div>
-        <div class="group">
-          <div class="toggle"><span class="lab"><span class="ico">🍻</span>팀 회식 되는 곳</span><button class="switch" id="tTeam" role="switch" aria-checked="false" aria-label="팀 회식 되는 곳"></button></div>
-          <div class="toggle"><span class="lab"><span class="ico">💬</span>우리 팀 리뷰 있는 곳만</span><button class="switch" id="tRev" role="switch" aria-checked="false" aria-label="우리 팀 리뷰 있는 곳만"></button></div>
+        </div></div></div>
+        <div class="group quick-checks">
+          <div class="toggle"><span class="lab"><span class="ico">🍻</span>팀 회식 가능</span><button class="switch" id="tTeam" role="switch" aria-checked="false" aria-label="팀 회식 되는 곳"></button></div>
+          <div class="toggle"><span class="lab"><span class="ico">💬</span>우리 팀 리뷰 있음</span><button class="switch" id="tRev" role="switch" aria-checked="false" aria-label="우리 팀 리뷰 있는 곳만"></button></div>
         </div>
       </div>
       <div class="sortrow"><span id="shown"></span><label>정렬 <select id="sort"><option value="walk">가까운 순</option><option value="team">우리 팀 별점</option><option value="kakao">카카오맵 별점</option><option value="name">이름순</option></select></label></div>
@@ -229,6 +264,7 @@ main[data-view="map"] .side{display:none}
       <div id="lmap" hidden></div>
       <svg id="map" viewBox="-1250 -1150 2500 2100" role="img" aria-label="약도" hidden></svg>
       <div class="tip" id="tip"></div>
+      <button type="button" class="mobile-map-toggle btn" id="mapSizeToggle" aria-expanded="false">지도 크게 보기</button>
       <div class="mapctl">
         <button class="btn" id="showall" hidden>← 전체 보기</button>
         <div class="zoom" id="zoomctl"><button id="zin" aria-label="확대">+</button><button id="zout" aria-label="축소">−</button><button id="zreset" aria-label="원래대로">⌂</button></div>
@@ -388,6 +424,7 @@ function starsHtml(p){
   </div>`;
 }
 function renderList(){
+  updateFilterLabels();
   const arr = filtered();
   MAP.renderPins(new Set(arr.map(p=>p.id)));
   renderCards(arr);
@@ -656,6 +693,47 @@ $('#list').addEventListener('keydown', ev => { const c = ev.target.closest('.car
 const views = ['both','map','list'], vlabel = {both:'🗺 지도만 보기', map:'☰ 목록만 보기', list:'⧉ 목록과 지도 함께 보기'};
 $('#viewbtn').onclick = () => { const m = $('#main'); const i = (views.indexOf(m.dataset.view)+1)%3; m.dataset.view = views[i]; $('#viewbtn').textContent = vlabel[views[i]]; if (MAP.invalidate) setTimeout(() => { MAP.invalidate(); renderCards(); }, 60); };
 $('#showall').onclick = () => { state.sel = null; renderList(); if (MAP.showAll) MAP.showAll(); };
+
+/* Mobile: move the existing controls, preserving their state and event handlers. */
+const mobileLayout = window.matchMedia('(max-width:860px)');
+function arrangeMobile(){
+  const main = $('#main'), side = $('.side'), filters = $('.filters');
+  if(mobileLayout.matches){
+    $('.search').after($('#chips'), $('#subchips'));
+    side.insertBefore($('#mapwrap'), $('.sortrow'));
+    side.append($('#banner'));
+  }else{
+    main.before($('#chips'), $('#subchips'));
+    main.append($('#mapwrap'));
+    side.prepend($('#banner'));
+  }
+  closeFilterPanels();
+  if(MAP && MAP.invalidate) requestAnimationFrame(()=>MAP.invalidate());
+}
+function closeFilterPanels(){
+  document.querySelectorAll('.filter-toggle').forEach(b=>b.setAttribute('aria-expanded','false'));
+}
+function updateFilterLabels(){
+  const labels=['1만원 이하','1~2만원','2~4만원','4만원 이상'];
+  $('#priceToggle').textContent='가격대 · '+(state.tiers.size ? [...state.tiers].sort().map(t=>labels[t]).join(', ') : '전체')+' ▾';
+  $('#walkToggle').textContent='도보시간 · '+(state.walk>=16 ? '전체' : state.walk+'분 이내')+' ▾';
+}
+document.querySelectorAll('.filter-toggle').forEach(b=>b.addEventListener('click',()=>{
+  const open=b.getAttribute('aria-expanded')==='true';closeFilterPanels();b.setAttribute('aria-expanded',String(!open));
+}));
+document.addEventListener('click',ev=>{
+  if(!ev.target.closest('.compact-filters')) closeFilterPanels();
+  if(mobileLayout.matches && ev.target.closest('.quick-checks .lab')) ev.target.closest('.toggle').querySelector('.switch').click();
+});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeFilterPanels();});
+$('#mapSizeToggle').onclick=()=>{
+  const expanded=$('#mapwrap').classList.toggle('mobile-expanded');
+  $('#mapSizeToggle').textContent=expanded?'지도 작게 보기':'지도 크게 보기';
+  $('#mapSizeToggle').setAttribute('aria-expanded',String(expanded));
+  if(MAP.invalidate)requestAnimationFrame(()=>MAP.invalidate());
+};
+mobileLayout.addEventListener('change',arrangeMobile);
+arrangeMobile();
 
 /* ---------- 시작 ---------- */
 MAP = (MAP_MODE === 'leaflet' && window.L) ? leafletMap() : svgMap();
