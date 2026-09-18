@@ -262,8 +262,8 @@ header.top .sub{font-weight:500}
 
 <div class="app">
   <header class="top">
-    <h1>더워터멜론 근처 맛집</h1>
-    <span class="sub">회사에서 걸어서 15분 안에</span>
+    <h1>🍉 더워터멜론 맛집지도</h1>
+    <span class="sub">우리 동료들이 직접 다녀온 진짜 맛집</span>
     <span class="count" id="count"></span>
     <button class="btn viewtoggle" id="viewbtn">🗺 지도만 보기</button>
     <button class="btn viewtoggle" id="myrevbtn">📝 내 리뷰</button>
@@ -405,6 +405,16 @@ const naverUrl = p => 'https://map.naver.com/p/search/' + encodeURIComponent(p.n
 const walkLabel = p => p.far ? `${p.walk}분 (15분 초과)` : `${p.walk}분`;
 
 const normalizeSearch = value => String(value ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+const QUICK_TAGS = ['⚡ 빨리 나와요','👥 여럿이 가기 좋아요','💰 가성비 좋아요','🍻 회식 가능','🙂 조용해요','🔥 맛있어요','🍚 점심 추천','🌙 저녁 추천','👤 혼밥 가능'];
+const reviewTags = r => {
+  const m = String(r.text||'').match(/^\[\[tags:([^\]]*)\]\]/);
+  return m && m[1] ? m[1].split('|').filter(Boolean) : [];
+};
+const reviewBody = r => String(r.text||'').replace(/^\[\[tags:[^\]]*\]\]/,'').trim();
+const encodeReviewText = (text,tags) => (tags&&tags.length ? '[[tags:'+tags.join('|')+']]' : '') + (text||'');
+const revisitCount = p => (reviews[p.id]||[]).filter(r=>r.again===true||r.again==='true'||r.again==='TRUE').length;
+const latestReview = p => (reviews[p.id]||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).find(r=>reviewBody(r));
+
 function filtered(){
   const q = normalizeSearch(state.q);
   let arr = PLACES.filter(p =>
@@ -451,10 +461,9 @@ function renderSubChips(){
   el.innerHTML = subs.map(s=>`<button class="chip" data-sub="${s}" aria-pressed="${s===state.subcat}">${s}</button>`).join('');
 }
 function starsHtml(p){
-  const t = teamAvg(p), n = (reviews[p.id]||[]).length;
-  return `<div class="stars">
-    ${t != null ? `<span><span class="star">★</span> <b class="team">${t.toFixed(1)}</b> <span class="n">우리 팀 ${n}</span></span>` : `<span class="n">우리 팀 리뷰 아직 없음</span>`}
-    ${p.kr != null ? `<span><span class="star">★</span> <b>${p.kr.toFixed(1)}</b> <span class="n">카카오맵 ${fmt(p.kn)}건</span></span>` : `<span class="n">카카오맵 평점 없음</span>`}
+  const n = (reviews[p.id]||[]).length, again = revisitCount(p);
+  return `<div class="stars reviewstats">
+    ${n ? `<span class="teamstat">💬 <b>팀 리뷰 ${n}</b></span><span class="revisit">👍 또 갈래요 ${again}</span>` : `<span class="n">💬 첫 후기를 기다리는 중</span>`}
   </div>`;
 }
 function renderList(){
@@ -477,9 +486,10 @@ function renderCards(arr){
         ${canTeamDine(p) ? '<div class="tags"><span class="tag">🍻 회식 가능</span></div>' : ''}
         <div class="meta"><span>${esc(p.sub || p.cat)}</span> · <span class="walk ${p.far?'far':''}">${walkLabel(p)}</span></div>
         <div class="meta" style="color:var(--ink3);font-size:12px">${esc(p.menu)}</div>
-        ${p.summary ? `<div class="meta" style="color:var(--ink2);font-size:12px">${esc(p.summary)}</div>` : ''}
-        ${p.tags.length ? `<div class="tags">${p.tags.map(t=>`<span class="tag ${/초과|확인/.test(t)?'w':''}">${esc(t)}</span>`).join('')}</div>` : ''}
+        ${latestReview(p) ? `<div class="reviewpeek">“${esc(reviewBody(latestReview(p)))}”</div>` : (p.summary ? `<div class="reviewpeek muted">“${esc(p.summary)}”</div>` : '')}
+        ${p.tags.length ? `<div class="tags">${p.tags.slice(0,3).map(t=>`<span class="tag ${/초과|확인/.test(t)?'w':''}">${esc(t)}</span>`).join('')}</div>` : ''}
         <div class="rate">${starsHtml(p)}<span class="price">${esc(p.price)}</span></div>
+        <button class="quick-review" type="button" data-review="${p.id}">＋ 후기 남기기</button>
       </div>
     </article>`).join('') : `<div class="empty">조건에 맞는 곳이 없어요.<br>검색어를 바꾸거나 필터를 넓혀보세요.</div>`;
 }
@@ -636,14 +646,21 @@ function showModal(id, jumpToReview=false){
     <section><h3>우리 팀 리뷰 ${t!=null?`<span style="color:var(--accent)">★ ${t.toFixed(1)}</span>`:''} <small>${rv.length}개</small></h3>
       <div class="rev">${rv.length ? rv.map(r => `<div class="rv" data-rid="${esc(r.rid||'')}"><div class="who"><span><b>${esc(r.name||'익명')}</b>${r.again?'<span class="again">또 갈래요</span>':''}${isTeamDiningReview(r)?'<span class="again">🍻 회식 가능</span>':''}</span><span>${r.ts?new Date(Number(r.ts)).toLocaleDateString('ko-KR'):''}</span></div><div class="stars-s">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>${reviewTags(r).length?`<div class="reviewtags">${reviewTags(r).map(t=>`<span class="rtag">${esc(t)}</span>`).join('')}</div>`:''}${reviewBody(r)?`<p>${esc(reviewBody(r))}</p>`:''}${r.owner&&r.owner===MY_ID?`<div class="rvact"><button type="button" class="mini" data-edit="${esc(r.rid||'')}">수정</button><button type="button" class="mini del" data-del="${esc(r.rid||'')}">삭제</button></div>`:''}</div>`).join('') : `<div class="msg">아직 리뷰가 없어요. 첫 리뷰를 남겨주세요!</div>`}</div>
     </section>
-    <section><h3>리뷰 남기기</h3>
+    <section class="review-compose"><h3>${esc(p.name)} 어땠어요?</h3>
       <form class="rf" id="rf">
-        <div class="row"><div class="starpick" id="sp" role="radiogroup" aria-label="별점">${[1,2,3,4,5].map(i=>`<button type="button" data-v="${i}" aria-label="${i}점">★</button>`).join('')}</div><span class="msg" id="spmsg">별점을 골라주세요</span></div>
+        <div class="review-q"><b>다시 갈래요?</b><span class="msg" id="spmsg">하나만 골라주세요</span></div>
+        <div class="sentpick" id="sp" role="radiogroup" aria-label="다시 갈 의향">
+          <button type="button" class="sentbtn" data-v="5"><span>👍</span><b>또 갈래요</b></button>
+          <button type="button" class="sentbtn" data-v="3"><span>😐</span><b>보통이에요</b></button>
+          <button type="button" class="sentbtn" data-v="1"><span>👎</span><b>아쉬워요</b></button>
+        </div>
+        <div class="review-q"><b>어떤 점이 좋았어요?</b><span class="msg">여러 개 선택 가능</span></div>
+        <div class="quicktags" id="quicktags">${QUICK_TAGS.map(t=>`<button type="button" class="qtag" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+        <textarea id="rtext" placeholder="하고 싶은 말이 있다면 한마디만! (선택)" maxlength="300"></textarea>
         <input type="text" id="rname" placeholder="이름 (비워두면 익명)" maxlength="20">
-        <textarea id="rtext" placeholder="한 줄 평 — 뭐가 맛있었는지, 점심에 괜찮은지, 웨이팅은 어땠는지" maxlength="300"></textarea>
-        <label class="ck"><input type="checkbox" id="rteam" aria-describedby="rteamhelp"> 🍻 회식 가능</label>
-        <div class="msg" id="rteamhelp">체크한 리뷰가 하나 이상 있으면 ‘팀 회식 되는 곳’에 표시돼요.</div>
-        <div class="row" style="justify-content:space-between"><label class="ck"><input type="checkbox" id="ragain"> 또 갈 생각 있어요</label><button class="primary" type="submit" id="rsub" disabled>등록</button></div>
+        <input type="checkbox" id="rteam" hidden>
+        <input type="checkbox" id="ragain" hidden>
+        <button class="primary review-submit" type="submit" id="rsub" disabled>등록하기</button>
         <div class="msg" id="rmsg">${store.mode==='local' ? '미리보기 모드: 리뷰가 이 브라우저에만 저장돼요.' : '등록하면 팀 전체에 바로 보여요.'}</div>
       </form>
     </section>`;
@@ -652,14 +669,27 @@ function showModal(id, jumpToReview=false){
   if(jumpToReview){ requestAnimationFrame(()=>{ const sec=$('.review-compose'); if(sec) sec.scrollIntoView({block:'start'}); }); }
   $('#modal').querySelectorAll('[data-del]').forEach(b => b.onclick = () => confirmDelete(b, id));
   $('#modal').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => startEdit(b.dataset.edit, id));
-  $('#sp').querySelectorAll('button').forEach(b => b.onclick = () => { pick = +b.dataset.v; $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); $('#spmsg').textContent = pick===5?'추천해요':pick===3?'무난했어요':'아쉬웠어요'; $('#ragain').checked = pick===5; $('#rsub').disabled = false; });
+  $('#sp').querySelectorAll('button').forEach(b => b.onclick = () => {
+    pick = +b.dataset.v;
+    $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b));
+    $('#spmsg').textContent = pick===5?'추천해요':pick===3?'무난했어요':'아쉬웠어요';
+    $('#ragain').checked = pick===5;
+    $('#rsub').disabled = false;
+  });
+  $('#quicktags').querySelectorAll('.qtag').forEach(b=>b.onclick=()=>{
+    b.classList.toggle('on');
+    const tags=[...$('#quicktags').querySelectorAll('.qtag.on')].map(x=>x.dataset.tag);
+    $('#rteam').checked=tags.includes('🍻 회식 가능');
+  });
   $('#quicktags').querySelectorAll('.qtag').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); const tags=[...$('#quicktags').querySelectorAll('.qtag.on')].map(x=>x.dataset.tag); $('#rteam').checked=tags.includes('🍻 회식 가능'); });
   try { $('#rname').value = localStorage.getItem('twm-name') || ''; } catch(e){}
   $('#rf').onsubmit = async ev => {
     ev.preventDefault(); if (!pick) return;
     const wasEdit = !!editingRid;
-    const name = $('#rname').value.trim() || '익명', text = $('#rtext').value.trim(), again = $('#ragain').checked;
-    const teamDining = $('#rteam').checked;
+    const name = $('#rname').value.trim() || '익명';
+    const tags=[...$('#quicktags').querySelectorAll('.qtag.on')].map(x=>x.dataset.tag);
+    const text = encodeReviewText($('#rtext').value.trim(), tags), again = pick===5;
+    const teamDining = tags.includes('🍻 회식 가능');
     $('#rsub').disabled = true; $('#rsub').textContent = '저장 중…';
     try {
       if (wasEdit) { await store.edit(editingRid, {name, rating: pick, text, again, teamDining}); }
@@ -687,12 +717,15 @@ function startEdit(rid, placeId){
   let target=null; (reviews[placeId]||[]).forEach(r=>{ if(r.rid===rid) target=r; });
   if(!target) return;
   editingRid = rid; pick = Number(target.rating)||0;
-  $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', +x.dataset.v <= pick));
-  $('#spmsg').textContent = ['','별로예요','그저 그래요','괜찮아요','맛있어요','최고예요'][pick] || '';
+  const nearest = pick>=4?5:pick<=2?1:3; pick=nearest;
+  $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', +x.dataset.v === nearest));
+  $('#spmsg').textContent = nearest===5?'추천해요':nearest===3?'무난했어요':'아쉬웠어요';
   $('#rname').value = (target.name && target.name!=='익명') ? target.name : '';
-  $('#rtext').value = target.text || '';
-  $('#ragain').checked = !!target.again;
-  $('#rteam').checked = isTeamDiningReview(target);
+  $('#rtext').value = reviewBody(target);
+  const ets=reviewTags(target);
+  $('#quicktags').querySelectorAll('.qtag').forEach(x=>x.classList.toggle('on', ets.includes(x.dataset.tag)));
+  $('#ragain').checked = nearest===5;
+  $('#rteam').checked = ets.includes('🍻 회식 가능') || isTeamDiningReview(target);
   $('#rsub').disabled = false; $('#rsub').textContent = '수정 저장';
   const sec = $('#rf').closest('section'); const hh = sec && sec.querySelector('h3'); if (hh) hh.textContent = '리뷰 수정';
   $('#rf').scrollIntoView({block:'nearest', behavior:'smooth'});
@@ -703,7 +736,7 @@ function showMyReviews(){
   mine.sort((a,b)=>(b.ts||0)-(a.ts||0));
   $('#modal').innerHTML = `
     <div class="hd"><div><h2>내 리뷰</h2><div class="meta" style="color:var(--ink2)">이 브라우저에서 남긴 리뷰 ${mine.length}개</div></div><button class="close" aria-label="닫기" id="mclose">✕</button></div>
-    ${mine.length ? `<div class="rev">${mine.map(r=>{ const p=PLACES.find(x=>x.id===r.placeId); return `<div class="rv" data-rid="${esc(r.rid||'')}"><div class="who"><span><b>${p?esc(p.name):'(삭제된 가게)'}</b>${r.again?'<span class="again">또 갈래요</span>':''}${isTeamDiningReview(r)?'<span class="again">🍻 회식 가능</span>':''}</span><span>${r.ts?new Date(Number(r.ts)).toLocaleDateString('ko-KR'):''}</span></div><div class="stars-s">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>${r.text?`<p>${esc(r.text)}</p>`:''}<div class="rvact">${p?`<button type="button" class="mini" data-go="${esc(r.placeId)}">가게 보기</button>`:''}<button type="button" class="mini del" data-delmine="${esc(r.rid||'')}">삭제</button></div></div>`; }).join('')}</div>` : `<div class="msg" style="padding:20px 0">아직 이 브라우저에서 남긴 리뷰가 없어요.</div>`}`;
+    ${mine.length ? `<div class="rev">${mine.map(r=>{ const p=PLACES.find(x=>x.id===r.placeId); return `<div class="rv" data-rid="${esc(r.rid||'')}"><div class="who"><span><b>${p?esc(p.name):'(삭제된 가게)'}</b>${r.again?'<span class="again">또 갈래요</span>':''}${isTeamDiningReview(r)?'<span class="again">🍻 회식 가능</span>':''}</span><span>${r.ts?new Date(Number(r.ts)).toLocaleDateString('ko-KR'):''}</span></div><div class="stars-s">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>${reviewTags(r).length?`<div class="reviewtags">${reviewTags(r).map(t=>`<span class="rtag">${esc(t)}</span>`).join('')}</div>`:''}${reviewBody(r)?`<p>${esc(reviewBody(r))}</p>`:''}<div class="rvact">${p?`<button type="button" class="mini" data-go="${esc(r.placeId)}">가게 보기</button>`:''}<button type="button" class="mini del" data-delmine="${esc(r.rid||'')}">삭제</button></div></div>`; }).join('')}</div>` : `<div class="msg" style="padding:20px 0">아직 이 브라우저에서 남긴 리뷰가 없어요.</div>`}`;
   $('#overlay').classList.add('on');
   $('#mclose').onclick = closeModal;
   $('#modal').querySelectorAll('[data-go]').forEach(b => b.onclick = () => showModal(b.dataset.go));
