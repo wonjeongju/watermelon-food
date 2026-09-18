@@ -11,7 +11,7 @@
 <style>
 :root{
   --bg:#f4f5f7;--panel:#ffffff;--ink:#1f2328;--ink2:#5b6470;--ink3:#8a929d;--line:#e6e8ec;
-  --accent:#f26457;--accent-ink:#ffffff;--accent-soft:#fdeceb;--green:#2f8f5b;--green-soft:#e3f3ea;
+  --accent:#15965a;--accent-ink:#ffffff;--accent-soft:#e9f7ef;--green:#15965a;--green-soft:#e9f7ef;
   --map:#f2efe9;--block:#e9e4dd;--road:#ffffff;--road-ink:#6b6f76;--park:#cfe6cf;
   --star:#f2a33a;--chip:#ffffff;--warn:#b7791f;--warn-soft:#fdf3dc;--shadow:0 1px 2px rgba(20,24,30,.06),0 6px 20px rgba(20,24,30,.06);
 }
@@ -222,6 +222,40 @@ main[data-view="map"] .side{display:none}
   main[data-view="map"] .mobile-map-toggle{display:none}
   main[data-view="list"] .list{grid-template-columns:1fr}
 }
+
+/* ===== review-first redesign ===== */
+header.top{padding:14px 20px 10px;gap:10px}
+header.top h1{font-size:24px}
+header.top .sub{font-weight:500}
+.card{grid-template-columns:78px 1fr;gap:12px;padding:13px;border:1px solid var(--line)}
+.thumb{width:78px;height:78px;font-size:30px}
+.card .name{font-size:17px}
+.reviewpeek{margin:3px 0 2px;padding:8px 10px;border-radius:9px;background:var(--accent-soft);font-size:12.5px;line-height:1.45;color:var(--ink)}
+.reviewpeek.muted{background:var(--bg);color:var(--ink2)}
+.reviewstats{gap:9px}.reviewstats .teamstat{color:#6c46c9;font-weight:700}.reviewstats .revisit{color:#b36a00;font-weight:700}
+.quick-review{grid-column:1/-1;margin-top:6px;border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:9px;padding:8px 10px;font-weight:800}
+.quick-review:hover{background:var(--accent-soft)}
+.reviewtags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.rtag{font-size:11px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+.review-compose h3{font-size:18px!important}
+.review-q{display:flex;justify-content:space-between;align-items:baseline;margin-top:3px}
+.sentpick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sentbtn{border:1px solid var(--line);background:var(--panel);border-radius:12px;min-height:82px;display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center}
+.sentbtn span{font-size:26px}.sentbtn b{font-size:13px}.sentbtn.on{border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent)}
+.quicktags{display:flex;gap:7px;flex-wrap:wrap}.qtag{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 10px;font-size:12px}.qtag.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.review-name-row{display:none}.review-submit{width:100%;margin-top:4px}
+.modal section:first-of-type h3{font-size:18px}
+@media(max-width:860px){
+  header.top{padding:12px 14px 8px}
+  header.top h1{font-size:20px;width:100%}
+  header.top .sub{font-size:12px}
+  .top .count{display:none}
+  .top .viewtoggle{padding:7px 10px;font-size:12px}
+  .mapwrap{height:230px;min-height:230px;max-height:230px;border-radius:12px}
+  .card{grid-template-columns:72px 1fr;border-radius:12px;padding:12px}
+  .thumb{width:72px;height:72px}
+  .quick-review{padding:9px}
+}
+
 </style>
 </head>
 <body>
@@ -240,7 +274,7 @@ main[data-view="map"] .side{display:none}
     <aside class="side">
       <div class="banner" id="banner" hidden></div>
       <div class="filters">
-        <div class="search"><input id="q" type="search" placeholder="가게 이름 일부, 메뉴 검색" aria-label="검색"></div>
+        <div class="search"><input id="q" type="search" placeholder="식당명, 메뉴, 키워드로 검색해보세요" aria-label="검색"></div>
         <div class="compact-filters">
         <div class="group filter-group"><button type="button" class="filter-toggle" id="priceToggle" aria-expanded="false" aria-controls="pricePanel">가격대 · 전체 ▾</button><div class="filter-panel" id="pricePanel"><h3>가격대 <small>(1인)</small></h3>
           <div class="pills" id="tiers">
@@ -584,7 +618,7 @@ function select(id, openModal){
   if (openModal) showModal(id);
 }
 let pick = 0;
-function showModal(id){
+function showModal(id, jumpToReview=false){
   const p = PLACES.find(x=>x.id===id); const rv = (reviews[id]||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0)); pick = 0; editingRid = null;
   const t = teamAvg(p);
   $('#modal').innerHTML = `
@@ -600,7 +634,7 @@ function showModal(id){
       ${p.note ? `<dt>메모</dt><dd>${esc(p.note)}</dd>` : ''}
     </dl>
     <section><h3>우리 팀 리뷰 ${t!=null?`<span style="color:var(--accent)">★ ${t.toFixed(1)}</span>`:''} <small>${rv.length}개</small></h3>
-      <div class="rev">${rv.length ? rv.map(r => `<div class="rv" data-rid="${esc(r.rid||'')}"><div class="who"><span><b>${esc(r.name||'익명')}</b>${r.again?'<span class="again">또 갈래요</span>':''}${isTeamDiningReview(r)?'<span class="again">🍻 회식 가능</span>':''}</span><span>${r.ts?new Date(Number(r.ts)).toLocaleDateString('ko-KR'):''}</span></div><div class="stars-s">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>${r.text?`<p>${esc(r.text)}</p>`:''}${r.owner&&r.owner===MY_ID?`<div class="rvact"><button type="button" class="mini" data-edit="${esc(r.rid||'')}">수정</button><button type="button" class="mini del" data-del="${esc(r.rid||'')}">삭제</button></div>`:''}</div>`).join('') : `<div class="msg">아직 리뷰가 없어요. 첫 리뷰를 남겨주세요!</div>`}</div>
+      <div class="rev">${rv.length ? rv.map(r => `<div class="rv" data-rid="${esc(r.rid||'')}"><div class="who"><span><b>${esc(r.name||'익명')}</b>${r.again?'<span class="again">또 갈래요</span>':''}${isTeamDiningReview(r)?'<span class="again">🍻 회식 가능</span>':''}</span><span>${r.ts?new Date(Number(r.ts)).toLocaleDateString('ko-KR'):''}</span></div><div class="stars-s">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>${reviewTags(r).length?`<div class="reviewtags">${reviewTags(r).map(t=>`<span class="rtag">${esc(t)}</span>`).join('')}</div>`:''}${reviewBody(r)?`<p>${esc(reviewBody(r))}</p>`:''}${r.owner&&r.owner===MY_ID?`<div class="rvact"><button type="button" class="mini" data-edit="${esc(r.rid||'')}">수정</button><button type="button" class="mini del" data-del="${esc(r.rid||'')}">삭제</button></div>`:''}</div>`).join('') : `<div class="msg">아직 리뷰가 없어요. 첫 리뷰를 남겨주세요!</div>`}</div>
     </section>
     <section><h3>리뷰 남기기</h3>
       <form class="rf" id="rf">
@@ -615,9 +649,11 @@ function showModal(id){
     </section>`;
   $('#overlay').classList.add('on');
   $('#mclose').onclick = closeModal;
+  if(jumpToReview){ requestAnimationFrame(()=>{ const sec=$('.review-compose'); if(sec) sec.scrollIntoView({block:'start'}); }); }
   $('#modal').querySelectorAll('[data-del]').forEach(b => b.onclick = () => confirmDelete(b, id));
   $('#modal').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => startEdit(b.dataset.edit, id));
-  $('#sp').querySelectorAll('button').forEach(b => b.onclick = () => { pick = +b.dataset.v; $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', +x.dataset.v <= pick)); $('#spmsg').textContent = ['','별로예요','그저 그래요','괜찮아요','맛있어요','최고예요'][pick]; $('#rsub').disabled = false; });
+  $('#sp').querySelectorAll('button').forEach(b => b.onclick = () => { pick = +b.dataset.v; $('#sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); $('#spmsg').textContent = pick===5?'추천해요':pick===3?'무난했어요':'아쉬웠어요'; $('#ragain').checked = pick===5; $('#rsub').disabled = false; });
+  $('#quicktags').querySelectorAll('.qtag').forEach(b=>b.onclick=()=>{ b.classList.toggle('on'); const tags=[...$('#quicktags').querySelectorAll('.qtag.on')].map(x=>x.dataset.tag); $('#rteam').checked=tags.includes('🍻 회식 가능'); });
   try { $('#rname').value = localStorage.getItem('twm-name') || ''; } catch(e){}
   $('#rf').onsubmit = async ev => {
     ev.preventDefault(); if (!pick) return;
@@ -688,7 +724,7 @@ $('#walk').addEventListener('input', ev => { state.walk = +ev.target.value; $('#
 [['tTeam','team'],['tRev','rev']].forEach(([id,k]) => $('#'+id).addEventListener('click', ev => { state[k] = !state[k]; ev.currentTarget.setAttribute('aria-checked', state[k]); state.sel = null; renderList(); }));
 $('#q').addEventListener('input', ev => { state.q = ev.target.value; state.sel = null; renderList(); });
 $('#sort').addEventListener('change', ev => { state.sort = ev.target.value; renderList(); });
-$('#list').addEventListener('click', ev => { const c = ev.target.closest('.card'); if (c) select(c.dataset.id, true); });
+$('#list').addEventListener('click', ev => { const rb=ev.target.closest('[data-review]'); if(rb){ ev.stopPropagation(); showModal(rb.dataset.review, true); return; } const c = ev.target.closest('.card'); if (c) select(c.dataset.id, true); });
 $('#list').addEventListener('keydown', ev => { const c = ev.target.closest('.card'); if (c && (ev.key==='Enter'||ev.key===' ')) { ev.preventDefault(); select(c.dataset.id, true); } });
 const views = ['both','map','list'], vlabel = {both:'🗺 지도만 보기', map:'☰ 목록만 보기', list:'⧉ 목록과 지도 함께 보기'};
 $('#viewbtn').onclick = () => { const m = $('#main'); const i = (views.indexOf(m.dataset.view)+1)%3; m.dataset.view = views[i]; $('#viewbtn').textContent = vlabel[views[i]]; if (MAP.invalidate) setTimeout(() => { MAP.invalidate(); renderCards(); }, 60); };
